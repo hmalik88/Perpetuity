@@ -61,6 +61,7 @@ contract OptionFactory is Ownable {
         require(msg.sender == auction.owner, "You are not the owner!");
         require(block.timestamp > auction.creationTime + auction.duration, "Auction is not yet over, please wait until after to create option");
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
+        require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
         address option = new Option(auction.asset,
                                     auction.assetAmount,
                                     auction.strikePrice,
