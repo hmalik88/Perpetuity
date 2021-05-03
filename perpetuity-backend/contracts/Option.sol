@@ -2,7 +2,7 @@
 pragma solidity ^0.7.3;
 
 import "hardhat/console.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+
 
 
 contract Option {
