@@ -39,8 +39,7 @@ contract Option {
   }
 
   function optionType() public view returns (string) {
-    if (isCall == 1) return "Call";
-    return "Put";
+    return isCall  ? "Call" : "Put";
   }
 
   function flowRate() public view returns (uint) {
