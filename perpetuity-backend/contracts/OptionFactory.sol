@@ -9,6 +9,7 @@ contract OptionFactory is Ownable {
     struct Auction {
         string asset;
         bool isCall;
+        bool optionCreated;
         uint assetAmount;
         uint reservePrice;
         uint creationTime;
@@ -33,6 +34,7 @@ contract OptionFactory is Ownable {
             asset: _asset,
             assetAmount: _assetAmount,
             reservePrice: _reservePrice,
+            optionCreated: false,
             isCall: _isCall,
             creationTime: block.timestamp,
             duration: _duration,
@@ -46,8 +48,8 @@ contract OptionFactory is Ownable {
 
     function placeBid(uint _amount, uint _auctionID) public {
         // amount is per sec
-        //in order for the bid to be placed, we need to have the user approve
-        // the approval will have to be for the superfluid token
+        //in order for the bid to be placed, we need to have the user approve supertoken (???)
+        // OR we might need to just check the balance of the bidder's superfluid token is atleast at a month...we can request for their to be a reserve duration in premium
         // ** place approval logic here **
         Auction storage auction = auctions[_auctionID];
         require(_amount > auction.currentBid, "Bid must be higher than current bid!");
@@ -57,11 +59,17 @@ contract OptionFactory is Ownable {
     }
 
     function createOption(uint _auctionID) public {
+        // we want to be able to have the CFA start when the writer creates the option.
+        // reqire them to have a balance
+        //create CFA between option owner and bidder
+        // emit an event that our contract is created and start the flow with the sdk on the front end?
         Auction memory auction = auctions[_auctionID];
+        require(!auction.optionCreated, "this option was already written!");
         require(msg.sender == auction.owner, "You are not the owner!");
         require(block.timestamp > auction.creationTime + auction.duration * 1 days, "Auction is not yet over, please wait until after to create option");
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
         require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
+        auction.optionCreated = true;
         address option = new Option(auction.asset,
                                     auction.assetAmount,
                                     auction.strikePrice,
