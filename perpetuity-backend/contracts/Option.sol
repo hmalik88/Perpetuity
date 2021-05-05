@@ -46,4 +46,8 @@ contract Option {
     return flowRate;
   }
 
+  //functions to execute the option
+  // option should be holding custody of the WETH/WBTC
+  
+
 }
