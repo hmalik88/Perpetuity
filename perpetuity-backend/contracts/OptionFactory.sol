@@ -51,7 +51,7 @@ contract OptionFactory is Ownable {
         // ** place approval logic here **
         Auction storage auction = auctions[_auctionID];
         require(_amount > auction.currentBid, "Bid must be higher than current bid!");
-        require(block.timestamp < auction.creationTime + auction.duration, "Auction is expired.");
+        require(block.timestamp < auction.creationTime + auction.duration * 1 days, "Auction is expired.");
         auction.currentBid = _amount;
         auction.currentBidder = msg.sender;
     }
@@ -59,7 +59,7 @@ contract OptionFactory is Ownable {
     function createOption(uint _auctionID) public {
         Auction memory auction = auctions[_auctionID];
         require(msg.sender == auction.owner, "You are not the owner!");
-        require(block.timestamp > auction.creationTime + auction.duration, "Auction is not yet over, please wait until after to create option");
+        require(block.timestamp > auction.creationTime + auction.duration * 1 days, "Auction is not yet over, please wait until after to create option");
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
         require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
         address option = new Option(auction.asset,
