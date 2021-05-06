@@ -52,6 +52,10 @@ contract OptionFactory is Ownable {
         else if (!_isCall && _strikePrice < price) _;
     }
 
+    modifier notOwner(uint _auctionID) {
+        require(msg.sender != auctions[auctionID].owner);
+    }
+
     function createAuction(string _asset,
                            uint _reservePrice,
                            uint _assetAmount,
@@ -76,7 +80,7 @@ contract OptionFactory is Ownable {
         auctions.push(newAuction);
     }
 
-    function placeBid(uint _amount, uint _auctionID) public {
+    function placeBid(uint _amount, uint _auctionID) public notOwner(_auctionID) {
         // amount is per sec
         //in order for the bid to be placed, we need to have the user approve supertoken (???)
         // OR we might need to just check the balance of the bidder's superfluid token is atleast at a month...we can request for their to be a reserve duration in premium
