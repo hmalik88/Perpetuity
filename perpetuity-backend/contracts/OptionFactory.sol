@@ -1,11 +1,14 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.7.3;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Option.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC2O.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 contract OptionFactory is Ownable {
+
+using SafeMath for uint;
 
     struct Auction {
         string asset;
@@ -37,6 +40,12 @@ contract OptionFactory is Ownable {
         require(_asset == "WETH" || _asset == "WBTC", "supported ERC-20 coins are only WETH and WBTC at the moment");
         require(_reservePrice > 0, "reserve price must be a positive value");
         require(_duration >= 3, "duration of the auction must be atleast 3 days");
+        if (auction.asset == "WETH") {
+            assetAddress = maticWETH;
+        } else if (auction.asset == "WBTC") {
+            assetAddress = maticBTC;
+        }
+        require(assetAddress.balanceOf(msg.sender) >= _assetAmount, "not enough assets in user address")
         // insert logic to disallow creation of the call if the strike price is lower than the current asset price 
         // insert logic to disallow creation of the put if the srike price is higher than the current asset price
         Auction memory newAuction = Auction({
@@ -79,21 +88,42 @@ contract OptionFactory is Ownable {
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
         require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
         auction.optionCreated = true;
+        uint optionId = optionContracts.length().add(1);
+        address assetAddress;
+        if (auction.asset == "WETH") {
+            assetAddress = maticWETH;
+        } else if (auction.asset == "WBTC") {
+            assetAddress = maticBTC;
+        }
         address option = new Option(auction.asset,
+                                    assetAddress,
                                     auction.assetAmount,
                                     auction.strikePrice,
                                     auction.isCall,
                                     auction.currentBid,
                                     auction.owner,
-                                    auction.currentBidder);
-        if (auction.asset == "WETH") {
-
-        }
-        
+                                    auction.currentBidder,
+                                    optionId);
+        depositErc20(tokenAddress, option, auction.assetAmount);
         optionContracts.push(option);
     }
 
+    /**
+    * @dev Internal function to deposit ERC20
+    *
+    * */
+    function depositErc20(
+        address _tokenContract,
+        address _optionContract
+        uint256 _amount
+    )
+        internal
+    {
+        IERC20 erc;
+        erc = IERC20(_tokenContract);
+        uint256 allowance = erc.allowance(_msgSender(), address(this));
+        require(allowance >= _amount, "Token allowance not enough");
+        require(erc.transferFrom(_msgSender(), _optionContract, _amount), "Transfer failed");
+    }
 
-
-    
 }
