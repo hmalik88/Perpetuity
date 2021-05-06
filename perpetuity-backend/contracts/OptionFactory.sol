@@ -3,6 +3,7 @@ pragma solidity ^0.7.3;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Option.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC2O.sol";
 
 contract OptionFactory is Ownable {
 
@@ -20,6 +21,9 @@ contract OptionFactory is Ownable {
         address currentBidder;
     }
 
+    IERCO underlyingToken;
+    address maticWETH = 0xE8F3118fDB41edcFEF7bF1DCa8009Fa8274aa070;
+    address maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
     Auction[] public auctions;
     address[] optionContracts;
 
@@ -30,6 +34,11 @@ contract OptionFactory is Ownable {
                            uint _duration,
                            uint _strikePrice,
                            bool _isCall) public {
+        require(_asset == "WETH" || _asset == "WBTC", "supported ERC-20 coins are only WETH and WBTC at the moment");
+        require(_reservePrice > 0, "reserve price must be a positive value");
+        require(_duration >= 3, "duration of the auction must be atleast 3 days");
+        // insert logic to disallow creation of the call if the strike price is lower than the current asset price 
+        // insert logic to disallow creation of the put if the srike price is higher than the current asset price
         Auction memory newAuction = Auction({
             asset: _asset,
             assetAmount: _assetAmount,
@@ -77,6 +86,10 @@ contract OptionFactory is Ownable {
                                     auction.currentBid,
                                     auction.owner,
                                     auction.currentBidder);
+        if (auction.asset == "WETH") {
+
+        }
+        
         optionContracts.push(option);
     }
 
