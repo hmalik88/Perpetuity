@@ -31,7 +31,6 @@ using SafeMath for uint;
     address maticDAI;
     BTCConsumer btcOracle;
     ETHConsumer ethOracle;
-    address ETHoracle;
     Auction[] public auctions;
     address[] optionContracts;
 
