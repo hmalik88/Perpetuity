@@ -1,6 +1,7 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
+
 import "../node_modules/hardhat/console.sol";
 import "../node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,6 +13,7 @@ contract Option is ERC721Burnable() {
 
     string public asset;
     address assetAddress;
+    address maticDAI = 0x8Cab8846eE3eF1Cb5b71e87b8997DA8B24640981;
     uint256 assetAmount;
     uint256 public strikePrice;
     bool isCall;
@@ -20,8 +22,6 @@ contract Option is ERC721Burnable() {
     address optionWriter;
     uint256 optionId;
     uint256 paymentAmount;
-
-    address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
 
     constructor(
         string memory _asset,
@@ -34,7 +34,7 @@ contract Option is ERC721Burnable() {
         address _initialOptionHolder,
         uint256 _optionId
     )
-    ERC721 ("Perpetuity Option", "PERPO")
+    ERC721("Perpetuity Option", "PERPO")
      {
         asset = _asset;
         assetAddress = _assetAddress;
@@ -43,21 +43,22 @@ contract Option is ERC721Burnable() {
         isCall = _isCall;
         flowRate = _flowRate;
         optionWriter = _optionWriter;
-        initialOptionHolder = _initialOptionHolder;
         optionId = _optionId;
+        initialOptionHolder = _initialOptionHolder;
         paymentAmount = strikePrice.mul(assetAmount);
         _safeMint(_initialOptionHolder, _optionId);
+    }
+
+    function optionType() public view returns (string) {
+        return isCall ? "Call" : "Put";
     }
 
     //functions to execute the option
     // option should be holding custody of the WETH/WBTC
     function executeOption() public {
         require(_isApprovedOrOwner(_msgSender(), optionId), "ERC721Burnable: caller is not owner nor approved");
-        if (isCall) {
-          executeCall();
-        } else {
-          executePut();
-        }
+        if (isCall) executeCall();
+        else executePut();
         burn(optionId);
     }
 
@@ -68,7 +69,7 @@ contract Option is ERC721Burnable() {
     function executeCall() internal {
         IERC20 erc;
         erc = IERC20(maticDAI);
-        require(erc.balanceOf(msg.sender) >= assetAmount, "Not enough DAI to execute call option");
+        require(erc.balanceOf(msg.sender) >= paymentAmount, "Not enough DAI to execute call option");
         _transferOptionPaymentOrAsset(optionWriter, maticDAI, paymentAmount);
         _transferOptionAssetOrCollateral(msg.sender, assetAddress, assetAmount);
     }

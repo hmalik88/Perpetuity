@@ -17,7 +17,9 @@
     "hardhat": "^2.2.1"
   },
   "dependencies": {
+    "@chainlink/contracts": "^0.1.7",
     "@openzeppelin/contracts": "^4.1.0",
+    "@superfluid-finance/ethereum-contracts": "^1.0.0-rc.3",
     "@superfluid-finance/js-sdk": "^0.4.3"
   }
 }

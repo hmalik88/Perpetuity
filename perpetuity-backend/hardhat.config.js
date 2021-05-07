@@ -43,4 +43,3 @@ task("accounts", "Prints the list of accounts", async () => {
     timeout: 20000
   }
 }
-

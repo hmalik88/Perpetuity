@@ -5,6 +5,8 @@ import "../node_modules/@openzeppelin/contracts/access/Ownable.sol";
 import "./Option.sol";
 import "../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "./BTCConsumer.sol";
+import "./ETHConsumer.sol";
 
 contract OptionFactory is Ownable {
 
@@ -28,25 +30,47 @@ using SafeMath for uint;
     address maticWETH = 0xE8F3118fDB41edcFEF7bF1DCa8009Fa8274aa070;
     address maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
     address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
+    BTCConsumer btcOracle;
+    ETHConsumer ethOracle;
+    
     Auction[] public auctions;
     address[] optionContracts;
 
+    constructor(address _BTCoracle, address _ETHoracle) public Ownable() {
+        btcOracle = BTCConsumer(_BTCoracle);
+        ethOracle = ETHConsumer(_ETHoracle);
+    }
+
+    modifier strikeSanityCheck(string _asset, bool _isCall, uint _strikePrice) {
+        require(stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"), "supported ERC-20 coins are only WETH and WBTC at the moment");
+        int256 price;
+        if (_asset == "WBTC") {
+            btcOracle.requestPriceData();
+            price = btcOracle.price();
+        } else {
+            ethOracle.requestPriceData();
+            price = ethOracle.price();
+        }
+        if (_isCall && _strikePrice > price) _;
+        else if (!_isCall && _strikePrice < price) _;
+    }
+
+    modifier notOwner(uint _auctionID) {
+        require(msg.sender != auctions[auctionID].owner);
+    }
 
     function createAuction(string memory _asset,
                            uint _reservePrice,
                            uint _assetAmount,
                            uint _duration,
                            uint _strikePrice,
-                           bool _isCall) public {
-        require(stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"), "supported ERC-20 coins are only WETH and WBTC at the moment");
+                           bool _isCall) public strikeSanityCheck(_asset, _isCall, _strikePrice) {
         require(_reservePrice > 0, "reserve price must be a positive value");
         require(_duration >= 3, "duration of the auction must be atleast 3 days");
         address assetAddress = stringsEqual(_asset, "WETH") ? maticWETH : maticWBTC;
         IERC20 erc;
         erc = IERC20(assetAddress);
         require(erc.balanceOf(msg.sender) >= _assetAmount, "not enough assets in user address");
-        // insert logic to disallow creation of the call if the strike price is lower than the current asset price 
-        // insert logic to disallow creation of the put if the srike price is higher than the current asset price
         Auction memory newAuction = Auction({
             asset: _asset,
             assetAmount: _assetAmount,
@@ -63,7 +87,7 @@ using SafeMath for uint;
         auctions.push(newAuction);
     }
 
-    function placeBid(uint _amount, uint _auctionID) public {
+    function placeBid(uint _amount, uint _auctionID) public notOwner(_auctionID) {
         // amount is per sec
         //in order for the bid to be placed, we need to have the user approve supertoken (???)
         // OR we might need to just check the balance of the bidder's superfluid token is atleast at a month...we can request for their to be a reserve duration in premium
@@ -81,6 +105,7 @@ using SafeMath for uint;
         //create CFA between option owner and bidder
         // emit an event that our contract is created and start the flow with the sdk on the front end?
         Auction memory auction = auctions[_auctionID];
+        int256 price;
         require(!auction.optionCreated, "this option was already written!");
         require(msg.sender == auction.owner, "You are not the owner!");
         require(block.timestamp > auction.creationTime + auction.duration * 1 days, "Auction is not yet over, please wait until after to create option");
