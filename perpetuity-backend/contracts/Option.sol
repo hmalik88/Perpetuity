@@ -1,22 +1,30 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "../node_modules/hardhat/console.sol";
+import "../node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract Option is ERC721Burnable {
-    string asset;
+contract Option is ERC721Burnable() {
+
+  using SafeMath for uint;
+
+    string public asset;
     address assetAddress;
     uint256 assetAmount;
-    uint256 strikePrice;
+    uint256 public strikePrice;
     bool isCall;
-    uint256 flowRate;
+    uint256 public flowRate;
     address initialOptionHolder;
     address optionWriter;
     uint256 optionId;
+    uint256 paymentAmount;
+
+    address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
 
     constructor(
-        string _asset,
+        string memory _asset,
         address _assetAddress,
         uint256 _assetAmount,
         uint256 _strikePrice,
@@ -24,8 +32,10 @@ contract Option is ERC721Burnable {
         uint256 _flowRate,
         address _optionWriter,
         address _initialOptionHolder,
-        uint256 optionId
-    ) {
+        uint256 _optionId
+    )
+    ERC721 ("Perpetuity Option", "PERPO")
+     {
         asset = _asset;
         assetAddress = _assetAddress;
         assetAmount = _assetAmount;
@@ -34,39 +44,52 @@ contract Option is ERC721Burnable {
         flowRate = _flowRate;
         optionWriter = _optionWriter;
         initialOptionHolder = _initialOptionHolder;
-        _safeMint(_initialOptionHolder, optionId);
-    }
-
-    function underlyingAsset() public view returns (string) {
-        return asset;
-    }
-
-    function strikePrice() public view returns (uint256) {
-        return strikePrice;
-    }
-
-    function optionType() public view returns (string) {
-        return isCall ? "Call" : "Put";
-    }
-
-    function flowRate() public view returns (uint256) {
-        return flowRate;
+        optionId = _optionId;
+        paymentAmount = strikePrice.mul(assetAmount);
+        _safeMint(_initialOptionHolder, _optionId);
     }
 
     //functions to execute the option
     // option should be holding custody of the WETH/WBTC
     function executeOption() public {
         require(_isApprovedOrOwner(_msgSender(), optionId), "ERC721Burnable: caller is not owner nor approved");
-        _transferErc20(msg.sender, assetAddress, assetAmount);
+        if (isCall) {
+          executeCall();
+        } else {
+          executePut();
+        }
         burn(optionId);
     }
 
+    /**
+     * @dev Internal function to execute a call option
+     *
+     * */
+    function executeCall() internal {
+        IERC20 erc;
+        erc = IERC20(maticDAI);
+        require(erc.balanceOf(msg.sender) >= assetAmount, "Not enough DAI to execute call option");
+        _transferOptionPaymentOrAsset(optionWriter, maticDAI, paymentAmount);
+        _transferOptionAssetOrCollateral(msg.sender, assetAddress, assetAmount);
+    }
+
+    /**
+     * @dev Internal function to execute a put option
+     *
+     * */
+    function executePut() internal {
+        IERC20 erc;
+        erc = IERC20(assetAddress);
+        require(erc.balanceOf(msg.sender) >= assetAmount, "Not enough option asset to execute put option");
+        _transferOptionPaymentOrAsset(optionWriter, assetAddress, assetAmount);
+        _transferOptionAssetOrCollateral(msg.sender, maticDAI, paymentAmount);
+    }
 
     /**
      * @dev Internal function to transfer ERC20 held in the contract
      *
      * */
-    function _transferErc20(
+    function _transferOptionAssetOrCollateral(
         address _recipient,
         address _tokenContract,
         uint256 _returnAmount
@@ -77,5 +100,24 @@ contract Option is ERC721Burnable {
         erc = IERC20(_tokenContract);
         require(erc.balanceOf(address(this)) >= _returnAmount, "Not enough funds to transfer");
         erc.transfer(_recipient, _returnAmount);
+    }
+
+
+    /**
+     * @dev Internal function to transfer option call payment form option holder to option creator
+     *
+     * */
+    function _transferOptionPaymentOrAsset(
+        address _recipient,
+        address _tokenContract,
+        uint256 _paymentAmount
+    )
+        internal
+    {
+        IERC20 erc;
+        erc = IERC20(_tokenContract);
+        uint256 allowance = erc.allowance(_msgSender(), address(this));
+        require(allowance >= _paymentAmount, "Token allowance not enough");
+        require(erc.transferFrom(_msgSender(), _recipient, _paymentAmount), "Transfer failed");
     }
 }
