@@ -26,7 +26,6 @@ using SafeMath for uint;
         address currentBidder;
     }
 
-    IERC20 underlyingToken;
     address maticWETH = 0xE8F3118fDB41edcFEF7bF1DCa8009Fa8274aa070;
     address maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
     address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
@@ -99,7 +98,7 @@ using SafeMath for uint;
         auction.currentBidder = msg.sender;
     }
 
-        function createOption(uint _auctionID) public {
+    function createOption(uint _auctionID) public {
         // we want to be able to have the CFA start when the writer creates the option.
         // reqire them to have a balance
         //create CFA between option owner and bidder
@@ -112,6 +111,15 @@ using SafeMath for uint;
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
         require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
         address assetAddress = (stringsEqual(auction.asset, "WETH")) ? maticWETH : maticWBTC;
+        if (assetAddress == maticWETH) {
+            ethOracle.requestPriceData();
+            price = ethOracle.price();
+        } else {
+            btcOracle.requestPriceData();
+            price = btcOracle.price();
+
+        }
+        require(isCall ? price < auction.strikePrice : price > auction.strikePrice, "Strike price doesn't make sense with current prices");
         auction.optionCreated = true;
         uint optionId = optionContracts.length.add(1);
         address option = address(new Option(auction.asset,
