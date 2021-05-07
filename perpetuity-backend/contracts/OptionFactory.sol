@@ -1,12 +1,12 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "../node_modules/@openzeppelin/contracts/access/Ownable.sol";
 import "./Option.sol";
+import "../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC2O.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
 
 contract OptionFactory is Ownable {
 
@@ -26,24 +26,23 @@ using SafeMath for uint;
         address currentBidder;
     }
 
-    address maticWETH;
-    address maticWBTC;
-    address maticDAI;
+    IERC20 underlyingToken;
+    address maticWETH = 0xE8F3118fDB41edcFEF7bF1DCa8009Fa8274aa070;
+    address maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
+    address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
     BTCConsumer btcOracle;
     ETHConsumer ethOracle;
+    
     Auction[] public auctions;
     address[] optionContracts;
 
     constructor(address _BTCoracle, address _ETHoracle) public Ownable() {
-        maticWETH = 0xE8F3118fDB41edcFEF7bF1DCa8009Fa8274aa070;
-        maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
-        maticDAI = 0x8Cab8846eE3eF1Cb5b71e87b8997DA8B24640981;
         btcOracle = BTCConsumer(_BTCoracle);
         ethOracle = ETHConsumer(_ETHoracle);
     }
 
     modifier strikeSanityCheck(string _asset, bool _isCall, uint _strikePrice) {
-        require(_asset == "WETH" || _asset == "WBTC", "supported ERC-20 coins are only WETH and WBTC at the moment");
+        require(stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"), "supported ERC-20 coins are only WETH and WBTC at the moment");
         int256 price;
         if (_asset == "WBTC") {
             btcOracle.requestPriceData();
@@ -60,7 +59,7 @@ using SafeMath for uint;
         require(msg.sender != auctions[auctionID].owner);
     }
 
-    function createAuction(string _asset,
+    function createAuction(string memory _asset,
                            uint _reservePrice,
                            uint _assetAmount,
                            uint _duration,
@@ -68,13 +67,10 @@ using SafeMath for uint;
                            bool _isCall) public strikeSanityCheck(_asset, _isCall, _strikePrice) {
         require(_reservePrice > 0, "reserve price must be a positive value");
         require(_duration >= 3, "duration of the auction must be atleast 3 days");
-        if (auction.asset == "WETH") {
-            assetAddress = maticWETH;
-        } else if (auction.asset == "WBTC") {
-            assetAddress = maticBTC;
-        }
-        if (_isCall) require(assetAddress.balanceOf(msg.sender) >= _assetAmount, "not enough assets in user address")
-        else require (maticDAI.balanceOf(msg.sender) >= _assetAmount * _strikePrice);
+        address assetAddress = stringsEqual(_asset, "WETH") ? maticWETH : maticWBTC;
+        IERC20 erc;
+        erc = IERC20(assetAddress);
+        require(erc.balanceOf(msg.sender) >= _assetAmount, "not enough assets in user address");
         Auction memory newAuction = Auction({
             asset: _asset,
             assetAmount: _assetAmount,
@@ -103,7 +99,7 @@ using SafeMath for uint;
         auction.currentBidder = msg.sender;
     }
 
-    function createOption(uint _auctionID) public {
+        function createOption(uint _auctionID) public {
         // we want to be able to have the CFA start when the writer creates the option.
         // reqire them to have a balance
         //create CFA between option owner and bidder
@@ -115,20 +111,10 @@ using SafeMath for uint;
         require(block.timestamp > auction.creationTime + auction.duration * 1 days, "Auction is not yet over, please wait until after to create option");
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
         require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
+        address assetAddress = (stringsEqual(auction.asset, "WETH")) ? maticWETH : maticWBTC;
         auction.optionCreated = true;
-        address assetAddress;
-        if (auction.asset == "WBTC") {
-            assetAddress = maticBTC;
-            btcOracle.requestPriceData();
-            price = btcOracle.price();
-        } else {
-            assetAddress = maticWETH;
-            ethOracle.requestPriceData();
-            price = btcOracle.price();
-        }
-        require(auction.isCall ? price < auction.strikePrice : price > auction.strikePrice);
-        uint optionId = optionContracts.length().add(1);
-        address option = new Option(auction.asset,
+        uint optionId = optionContracts.length.add(1);
+        address option = address(new Option(auction.asset,
                                     assetAddress,
                                     auction.assetAmount,
                                     auction.strikePrice,
@@ -136,9 +122,16 @@ using SafeMath for uint;
                                     auction.currentBid,
                                     auction.owner,
                                     auction.currentBidder,
-                                    optionId);
-        if (auction.isCall) depositErc20(tokenAddress, option, auction.assetAmount);
-        else depositErc20(maticDAI, option, auction.assetAmount * auction.strikePrice);
+                                    optionId));
+        if (auction.isCall) {
+            IERC20 erc;
+            erc = IERC20(assetAddress);
+            require(erc.balanceOf(msg.sender) >= auction.assetAmount, "not enough assets in user address");
+            depositErc20(assetAddress, option, auction.assetAmount);
+        } else {
+            uint depositAmount = auction.assetAmount.mul(auction.strikePrice);
+            depositErc20(maticDAI, option, depositAmount);
+        }
         optionContracts.push(option);
     }
 
@@ -148,16 +141,24 @@ using SafeMath for uint;
     * */
     function depositErc20(
         address _tokenContract,
-        address _optionContract
+        address _optionContract,
         uint256 _amount
     )
         internal
     {
         IERC20 erc;
         erc = IERC20(_tokenContract);
-        uint256 allowance = erc.allowance(_msgSender(), address(this));
+        uint256 allowance = erc.allowance(msg.sender, address(this));
         require(allowance >= _amount, "Token allowance not enough");
-        require(erc.transferFrom(_msgSender(), _optionContract, _amount), "Transfer failed");
+        require(erc.transferFrom(msg.sender, _optionContract, _amount), "Transfer failed");
+    }
+
+    /**
+    * @dev Internal function to compare strings
+    *
+    * */
+    function stringsEqual(string memory _a, string memory _b) internal returns (bool) {
+        return (keccak256(abi.encodePacked((_a))) == keccak256(abi.encodePacked((_b))));
     }
 
 }
