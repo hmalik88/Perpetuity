@@ -35,8 +35,9 @@ contract Option is ERC721Burnable {
         isCall = _isCall;
         flowRate = _flowRate;
         optionWriter = _optionWriter;
+        optionId = _optionId;
         initialOptionHolder = _initialOptionHolder;
-        _safeMint(_initialOptionHolder, optionId);
+        _safeMint(_initialOptionHolder, _optionId);
     }
 
     function underlyingAsset() public view returns (memory string) {

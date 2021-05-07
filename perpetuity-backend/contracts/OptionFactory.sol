@@ -76,8 +76,6 @@ using SafeMath for uint;
         }
         if (_isCall) require(assetAddress.balanceOf(msg.sender) >= _assetAmount, "not enough assets in user address")
         else require (maticDAI.balanceOf(msg.sender) >= _assetAmount * _strikePrice);
-        // insert logic to disallow creation of the call if the strike price is lower than the current asset price 
-        // insert logic to disallow creation of the put if the srike price is higher than the current asset price
         Auction memory newAuction = Auction({
             asset: _asset,
             assetAmount: _assetAmount,
@@ -120,7 +118,6 @@ using SafeMath for uint;
         require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
         auction.optionCreated = true;
         address assetAddress;
-        // need to check again if price makes sense with strike
         if (auction.asset == "WBTC") {
             assetAddress = maticBTC;
             btcOracle.requestPriceData();
