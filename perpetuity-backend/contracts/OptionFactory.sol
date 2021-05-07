@@ -1,13 +1,16 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.7.3;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Option.sol";
 import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC2O.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 contract OptionFactory is Ownable {
+
+using SafeMath for uint;
 
     struct Auction {
         string asset;
@@ -25,6 +28,7 @@ contract OptionFactory is Ownable {
 
     address maticWETH;
     address maticWBTC;
+    address maticDAI;
     BTCConsumer btcOracle;
     ETHConsumer ethOracle;
     address ETHoracle;
@@ -34,6 +38,7 @@ contract OptionFactory is Ownable {
     constructor(address _BTCoracle, address _ETHoracle) public Ownable() {
         maticWETH = 0xE8F3118fDB41edcFEF7bF1DCa8009Fa8274aa070;
         maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
+        maticDAI = 0x8Cab8846eE3eF1Cb5b71e87b8997DA8B24640981;
         btcOracle = BTCConsumer(_BTCoracle);
         ethOracle = ETHConsumer(_ETHoracle);
     }
@@ -64,6 +69,15 @@ contract OptionFactory is Ownable {
                            bool _isCall) public strikeSanityCheck(_asset, _isCall, _strikePrice) {
         require(_reservePrice > 0, "reserve price must be a positive value");
         require(_duration >= 3, "duration of the auction must be atleast 3 days");
+        if (auction.asset == "WETH") {
+            assetAddress = maticWETH;
+        } else if (auction.asset == "WBTC") {
+            assetAddress = maticBTC;
+        }
+        if (_isCall) require(assetAddress.balanceOf(msg.sender) >= _assetAmount, "not enough assets in user address")
+        else require (maticDAI.balanceOf(msg.sender) >= _assetAmount * _strikePrice);
+        // insert logic to disallow creation of the call if the strike price is lower than the current asset price 
+        // insert logic to disallow creation of the put if the srike price is higher than the current asset price
         Auction memory newAuction = Auction({
             asset: _asset,
             assetAmount: _assetAmount,
@@ -105,26 +119,49 @@ contract OptionFactory is Ownable {
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
         require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
         auction.optionCreated = true;
+        address assetAddress;
         // need to check again if price makes sense with strike
         if (auction.asset == "WBTC") {
+            assetAddress = maticBTC;
             btcOracle.requestPriceData();
             price = btcOracle.price();
         } else {
+            assetAddress = maticWETH;
             ethOracle.requestPriceData();
             price = btcOracle.price();
         }
         require(auction.isCall ? price < auction.strikePrice : price > auction.strikePrice);
+        uint optionId = optionContracts.length().add(1);
         address option = new Option(auction.asset,
+                                    assetAddress,
                                     auction.assetAmount,
                                     auction.strikePrice,
                                     auction.isCall,
                                     auction.currentBid,
                                     auction.owner,
-                                    auction.currentBidder);
+                                    auction.currentBidder,
+                                    optionId);
+        if (auction.isCall) depositErc20(tokenAddress, option, auction.assetAmount);
+        else depositErc20(maticDAI, option, auction.assetAmount * auction.strikePrice);
         optionContracts.push(option);
     }
 
+    /**
+    * @dev Internal function to deposit ERC20
+    *
+    * */
+    function depositErc20(
+        address _tokenContract,
+        address _optionContract
+        uint256 _amount
+    )
+        internal
+    {
+        IERC20 erc;
+        erc = IERC20(_tokenContract);
+        uint256 allowance = erc.allowance(_msgSender(), address(this));
+        require(allowance >= _amount, "Token allowance not enough");
+        require(erc.transferFrom(_msgSender(), _optionContract, _amount), "Transfer failed");
+    }
 
-
-    
 }
