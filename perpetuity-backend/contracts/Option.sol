@@ -6,10 +6,12 @@ import "../node_modules/hardhat/console.sol";
 import "../node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "./BTCConsumer.sol";
+import "./ETHConsumer.sol";
 
 contract Option is ERC721Burnable() {
 
-  using SafeMath for uint;
+    using SafeMath for uint;
 
     string public asset;
     address assetAddress;
@@ -49,6 +51,20 @@ contract Option is ERC721Burnable() {
         _safeMint(_initialOptionHolder, _optionId);
     }
 
+    modifier strikeSanityCheck(string _asset, bool _isCall, uint _strikePrice) {
+        require(stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"), "supported ERC-20 coins are only WETH and WBTC at the moment");
+        int256 price;
+        if (_asset == "WBTC") {
+            btcOracle.requestPriceData();
+            price = btcOracle.price();
+        } else {
+            ethOracle.requestPriceData();
+            price = ethOracle.price();
+        }
+        if (_isCall && _strikePrice > price) _;
+        else if (!_isCall && _strikePrice < price) _;
+    }
+
     function optionType() public view returns (string) {
         return isCall ? "Call" : "Put";
     }
@@ -66,7 +82,10 @@ contract Option is ERC721Burnable() {
      * @dev Internal function to execute a call option
      *
      * */
-    function executeCall() internal {
+    function executeCall() 
+        internal
+        strikeSanityCheck(asset, isCall, strikePrice)
+        {
         IERC20 erc;
         erc = IERC20(maticDAI);
         require(erc.balanceOf(msg.sender) >= paymentAmount, "Not enough DAI to execute call option");
