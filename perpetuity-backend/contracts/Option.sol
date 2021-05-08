@@ -24,6 +24,8 @@ contract Option is ERC721Burnable() {
     address optionWriter;
     uint256 optionId;
     uint256 paymentAmount;
+    BTCConsumer btcOracle;
+    ETHConsumer ethOracle;
 
     constructor(
         string memory _asset,
@@ -34,7 +36,9 @@ contract Option is ERC721Burnable() {
         uint256 _flowRate,
         address _optionWriter,
         address _initialOptionHolder,
-        uint256 _optionId
+        uint256 _optionId,
+        address _btcOracle,
+        address _ethOracle
     )
     ERC721("Perpetuity Option", "PERPO")
      {
@@ -48,6 +52,8 @@ contract Option is ERC721Burnable() {
         optionId = _optionId;
         initialOptionHolder = _initialOptionHolder;
         paymentAmount = strikePrice.mul(assetAmount);
+        btcOracle = BTCConsumer(_btcOracle);
+        ethOracle = ETHConsumer(_ethOracle);
         _safeMint(_initialOptionHolder, _optionId);
     }
 
@@ -97,7 +103,9 @@ contract Option is ERC721Burnable() {
      * @dev Internal function to execute a put option
      *
      * */
-    function executePut() internal {
+    function executePut() 
+        internal
+        strikeSanityCheck(asset, isCall, strikePrice) {
         IERC20 erc;
         erc = IERC20(assetAddress);
         require(erc.balanceOf(msg.sender) >= assetAmount, "Not enough option asset to execute put option");

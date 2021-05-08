@@ -29,6 +29,8 @@ using SafeMath for uint;
     address maticWETH = 0xE8F3118fDB41edcFEF7bF1DCa8009Fa8274aa070;
     address maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
     address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
+    address BTCoracle;
+    address ETHoracle;
     BTCConsumer btcOracle;
     ETHConsumer ethOracle;
     
@@ -36,8 +38,10 @@ using SafeMath for uint;
     address[] optionContracts;
 
     constructor(address _BTCoracle, address _ETHoracle) public Ownable() {
-        btcOracle = BTCConsumer(_BTCoracle);
-        ethOracle = ETHConsumer(_ETHoracle);
+        BTCoracle = _BTCoracle;
+        ETHoracle = _ETHoracle;
+        btcOracle = BTCConsumer(BTCoracle);
+        ethOracle = ETHConsumer(ETHoracle);
     }
 
     modifier strikeSanityCheck(string _asset, bool _isCall, uint _strikePrice) {
@@ -130,7 +134,9 @@ using SafeMath for uint;
                                     auction.currentBid,
                                     auction.owner,
                                     auction.currentBidder,
-                                    optionId));
+                                    optionId,
+                                    BTCoracle,
+                                    ETHoracle));
         if (auction.isCall) {
             IERC20 erc;
             erc = IERC20(assetAddress);
