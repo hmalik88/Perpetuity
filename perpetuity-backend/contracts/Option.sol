@@ -60,7 +60,7 @@ contract Option is ERC721Burnable() {
     modifier strikeSanityCheck(string _asset, bool _isCall, uint _strikePrice) {
         require(stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"), "supported ERC-20 coins are only WETH and WBTC at the moment");
         int256 price;
-        if (_asset == "WBTC") {
+        if (stringsEqual(_asset, "WBTC")) {
             btcOracle.requestPriceData();
             price = btcOracle.price();
         } else {
@@ -147,5 +147,13 @@ contract Option is ERC721Burnable() {
         uint256 allowance = erc.allowance(_msgSender(), address(this));
         require(allowance >= _paymentAmount, "Token allowance not enough");
         require(erc.transferFrom(_msgSender(), _recipient, _paymentAmount), "Transfer failed");
+    }
+
+        /**
+    * @dev Internal function to compare strings
+    *
+    * */
+    function stringsEqual(string memory _a, string memory _b) internal returns (bool) {
+        return (keccak256(abi.encodePacked((_a))) == keccak256(abi.encodePacked((_b))));
     }
 }

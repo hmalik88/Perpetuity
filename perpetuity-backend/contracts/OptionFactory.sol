@@ -47,7 +47,7 @@ using SafeMath for uint;
     modifier strikeSanityCheck(string _asset, bool _isCall, uint _strikePrice) {
         require(stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"), "supported ERC-20 coins are only WETH and WBTC at the moment");
         int256 price;
-        if (_asset == "WBTC") {
+        if (stringsEqual(_asset, "WBTC")) {
             btcOracle.requestPriceData();
             price = btcOracle.price();
         } else {
