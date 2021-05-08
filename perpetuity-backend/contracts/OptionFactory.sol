@@ -31,7 +31,6 @@ using SafeMath for uint;
         bool isCall;
         bool optionCreated;
         uint assetAmount;
-        uint reservePrice;
         uint creationTime;
         uint duration;
         uint strikePrice;
@@ -103,14 +102,13 @@ using SafeMath for uint;
         Auction memory newAuction = Auction({
             asset: _asset,
             assetAmount: _assetAmount,
-            reservePrice: _reservePrice,
             optionCreated: false,
             isCall: _isCall,
             creationTime: block.timestamp,
             duration: _duration,
             strikePrice: _strikePrice,
             owner: msg.sender,
-            currentBid: 0,
+            currentBid: _reservePrice,
             currentBidder: address(0)
         });
         auctions.push(newAuction);
@@ -143,7 +141,6 @@ using SafeMath for uint;
         require(msg.sender == auction.owner, "You are not the owner!");
         require(block.timestamp > auction.creationTime + auction.duration * 1 days, "Auction is not yet over, please wait until after to create option");
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
-        require(auction.currentBid >= auction.reservePrice, "Reserve price was not met.");
         address assetAddress = (stringsEqual(auction.asset, "WETH")) ? maticWETH : maticWBTC;
         if (assetAddress == maticWETH) {
             ethOracle.requestPriceData();
