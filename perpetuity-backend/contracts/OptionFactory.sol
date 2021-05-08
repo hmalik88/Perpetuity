@@ -115,10 +115,6 @@ using SafeMath for uint;
     }
 
     function placeBid(uint _amount, uint _auctionID) public notOwner(_auctionID) {
-        // amount is per sec
-        //in order for the bid to be placed, we need to have the user approve supertoken (???)
-        // OR we might need to just check the balance of the bidder's superfluid token is atleast at a month...we can request for their to be a reserve duration in premium
-        // ** place approval logic here **
         Auction storage auction = auctions[_auctionID];
         require(_amount > auction.currentBid, "Bid must be higher than current bid!");
         require(block.timestamp < auction.creationTime + auction.duration * 1 days, "Auction is expired.");
@@ -127,10 +123,6 @@ using SafeMath for uint;
     }
 
     function createOption(bytes calldata _ctx, bytes32 _agreementId) private returns (bytes memory newCtx) {
-        // we want to be able to have the CFA start when the writer creates the option.
-        // reqire them to have a balance
-        //create CFA between option owner and bidder
-        // emit an event that our contract is created and start the flow with the sdk on the front end?
         newCtx = _ctx;
         address user = host.decodeCtx(_ctx).msgSender;
         uint _auctionId = uint(host.decodeCtx(_ctx).userData.auctionId);
