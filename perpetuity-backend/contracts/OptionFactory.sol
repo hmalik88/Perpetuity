@@ -49,7 +49,7 @@ using SafeMath for uint;
     ETHConsumer ethOracle;
 
     ISuperfluid private host = ISuperfluid(0xEB796bdb90fFA0f28255275e16936D25d3418603);
-    address private fdaiX = 0x5D8B4C2554aeB7e86F387B4d6c00Ac33499Ed01f;
+    ISuperToken private superToken = ISuperToken(0x5D8B4C2554aeB7e86F387B4d6c00Ac33499Ed01f);
     IConstantFlowAgreementV1 private cfa = IConstantFlowAgreementV1(0x49e565Ed1bdc17F3d220f72DF0857C26FA83F873);
 
     
@@ -128,15 +128,16 @@ using SafeMath for uint;
         auction.currentBidder = msg.sender;
     }
 
-    function createOption(bytes calldata _ctx, bytes32 agreementId) private returns (bytes memory newCtx) {
+    function createOption(bytes calldata _ctx, bytes32 _agreementId) private returns (bytes memory newCtx) {
         // we want to be able to have the CFA start when the writer creates the option.
         // reqire them to have a balance
         //create CFA between option owner and bidder
         // emit an event that our contract is created and start the flow with the sdk on the front end?
         newCtx = _ctx;
         address user = host.decodeCtx(_ctx).msgSender;
-        (,int96 flowRate,,) = cfa.getFlowByID(superToken, agreementId);
-        Auction memory auction = auctions[_auctionID];
+        uint _auctionId = uint(host.decodeCtx(_ctx).userData.auctionId);
+        (,int96 flowRate,,) = cfa.getFlowByID(superToken, _agreementId);
+        Auction storage auction = auctions[_auctionId];
         int256 price;
         require(!auction.optionCreated, "this option was already written!");
         require(msg.sender == auction.owner, "You are not the owner!");
@@ -153,7 +154,6 @@ using SafeMath for uint;
 
         }
         require(isCall ? price < auction.strikePrice : price > auction.strikePrice, "Strike price doesn't make sense with current prices");
-        auction.optionCreated = true;
         uint optionId = optionContracts.length.add(1);
         address option = address(new Option(auction.asset,
                                     assetAddress,
@@ -175,7 +175,37 @@ using SafeMath for uint;
             uint depositAmount = auction.assetAmount.mul(auction.strikePrice);
             depositErc20(maticDAI, option, depositAmount);
         }
+        host.callAgreementWithContext(
+            cfa,
+            abi.encodeWithSelector(
+                cfa.createFlow.selector,
+                superToken,
+                auction.owner,
+                flowRate,
+                new bytes(0) // placeholder
+            ),
+            "0x",
+            ctx
+        );
+        auction.optionCreated = true;
         optionContracts.push(option);
+    }
+
+    function stopFlowToOptionWriter(bytes calldata _ctx, bytes32 _agreementId) private returns (bytes memory newCtx) {
+        uint _auctionId = uint(host.decodeCtx(_ctx).userData.auctionId);
+        Auction memory auction = auctions[_auctionId];
+        (newCtx, ) = host.callAgreementWithContext(
+              cfa,
+              abi.encodeWithSelector(
+                  cfa.deleteFlow.selector,
+                  superToken,
+                  address(this),
+                  auction.owner,
+                  new bytes(0) // placeholder
+              ),
+              "0x",
+              ctx
+          );
     }
 
     /**
@@ -220,8 +250,25 @@ using SafeMath for uint;
         return createOption(_ctx, _agreementId);
     }
 
+        function afterAgreementTerminated(
+        ISuperToken _superToken,
+        address _agreementClass,
+        bytes32 _agreementId,
+        bytes calldata _agreementData,
+        bytes calldata /*_cbdata*/,
+        bytes calldata _ctx
+    )
+        external override
+        onlyHost
+        returns (bytes memory)
+    {
+        // According to the app basic law, we should never revert in a termination callback
+        if (!_isAccepted(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
+        return stopFlowToOptionWriter(_ctx, _agreementId);
+    }
+
     function _isAccepted(ISuperToken _superToken) private view returns (bool) {
-        return address(_superToken) == address(fdaiX);
+        return address(_superToken) == address(superToken);
     }
 
     function _isCFAv1(address _agreementClass) private view returns (bool) {
