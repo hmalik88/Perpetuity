@@ -130,7 +130,7 @@ using SafeMath for uint;
         Auction storage auction = auctions[_auctionId];
         int256 price;
         require(!auction.optionCreated, "this option was already written!");
-        require(msg.sender == auction.owner, "You are not the owner!");
+        require(msg.sender == auction.currentBidder, "You are not the owner!");
         require(block.timestamp > auction.creationTime + auction.duration * 1 days, "Auction is not yet over, please wait until after to create option");
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
         address assetAddress = (stringsEqual(auction.asset, "WETH")) ? maticWETH : maticWBTC;
