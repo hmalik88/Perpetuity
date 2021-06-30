@@ -1,11 +1,9 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.0;
+pragma solidity ^0.6.0;
 
-
-import "../node_modules/hardhat/console.sol";
-import "../node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
-import "../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721Burnable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
 

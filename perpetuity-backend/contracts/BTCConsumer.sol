@@ -1,8 +1,7 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.7.3;
+pragma solidity ^0.6.0;
 
-import "@chainlink/contracts/src/v0.7/ChainlinkClient.sol";
-
+import "@chainlink/contracts/src/v0.6/ChainlinkClient.sol";
 
 contract BTCConsumer is ChainlinkClient {
     int256 public price;
@@ -19,8 +18,6 @@ contract BTCConsumer is ChainlinkClient {
      */
 
      constructor() public {
-         // not entirely sure about the hardcoded link token address
-         // is it mumbai??
          setChainlinkToken(0x70d1F773A9f81C852087B77F6Ae6d3032B02D2AB);
          oracle = 0xc8D925525CA8759812d0c299B90247917d4d4b7C;
          jobId = "cb031a72c98e4acea606347ba061a6d8";
