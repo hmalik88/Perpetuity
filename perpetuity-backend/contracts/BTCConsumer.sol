@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.6.0;
+pragma solidity ^0.7.0;
 
-import "@chainlink/contracts/src/v0.6/ChainlinkClient.sol";
+import "@chainlink/contracts/src/v0.7/ChainlinkClient.sol";
 
 contract BTCConsumer is ChainlinkClient {
     int256 public price;

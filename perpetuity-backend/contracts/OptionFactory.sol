@@ -83,7 +83,8 @@ contract OptionFactory is Ownable, SuperAppBase {
     }
 
     modifier notOwner(uint256 _auctionID) {
-        require(msg.sender != auctions[auctionID].owner);
+        require(msg.sender != auctions[_auctionID].owner);
+        _;
     }
 
     function createAuction(
@@ -214,7 +215,7 @@ contract OptionFactory is Ownable, SuperAppBase {
                 new bytes(0) // placeholder
             ),
             "0x",
-            ctx
+            _ctx
         );
         auction.optionCreated = true;
         optionContracts.push(option);
@@ -236,7 +237,7 @@ contract OptionFactory is Ownable, SuperAppBase {
                 new bytes(0) // placeholder
             ),
             "0x",
-            ctx
+            _ctx
         );
     }
 
