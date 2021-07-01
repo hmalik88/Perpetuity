@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.6.0;
+pragma solidity ^0.6.2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Option.sol";

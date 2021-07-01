@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.6.0;
+pragma solidity ^0.6.2;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -37,7 +37,7 @@ contract Option is ERC721Burnable() {
         uint256 _optionId,
         address _btcOracle,
         address _ethOracle
-    )
+    ) public
     ERC721("Perpetuity Option", "PERPO")
      {
         asset = _asset;
@@ -55,7 +55,7 @@ contract Option is ERC721Burnable() {
         _safeMint(_initialOptionHolder, _optionId);
     }
 
-    modifier strikeSanityCheck(string _asset, bool _isCall, uint _strikePrice) {
+    modifier strikeSanityCheck(string memory _asset, bool _isCall, uint _strikePrice) {
         require(stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"), "supported ERC-20 coins are only WETH and WBTC at the moment");
         int256 price;
         if (stringsEqual(_asset, "WBTC")) {
@@ -65,11 +65,11 @@ contract Option is ERC721Burnable() {
             ethOracle.requestPriceData();
             price = ethOracle.price();
         }
-        if (_isCall && _strikePrice > price) _;
-        else if (!_isCall && _strikePrice < price) _;
+        if (_isCall && _strikePrice > uint(price)) _;
+        else if (!_isCall && _strikePrice < uint(price)) _;
     }
 
-    function optionType() public view returns (string) {
+    function optionType() public view returns (string memory) {
         return isCall ? "Call" : "Put";
     }
 
