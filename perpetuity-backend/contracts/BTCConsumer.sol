@@ -17,7 +17,7 @@ contract BTCConsumer is ChainlinkClient {
      * Fee: 0.01 LINK
      */
 
-    constructor() public {
+    constructor() {
         setChainlinkToken(0x70d1F773A9f81C852087B77F6Ae6d3032B02D2AB);
         oracle = 0xc8D925525CA8759812d0c299B90247917d4d4b7C;
         jobId = "cb031a72c98e4acea606347ba061a6d8";

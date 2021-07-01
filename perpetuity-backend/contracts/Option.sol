@@ -54,7 +54,7 @@ contract Option is ERC721Burnable {
     }
 
     modifier strikeSanityCheck(
-        string _asset,
+        string memory _asset,
         bool _isCall,
         uint256 _strikePrice
     ) {

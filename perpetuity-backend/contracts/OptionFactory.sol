@@ -62,7 +62,7 @@ contract OptionFactory is Ownable, SuperAppBase {
     }
 
     modifier strikeSanityCheck(
-        string _asset,
+        string memory _asset,
         bool _isCall,
         uint256 _strikePrice
     ) {
@@ -172,7 +172,7 @@ contract OptionFactory is Ownable, SuperAppBase {
             price = btcOracle.price();
         }
         require(
-            isCall ? price < auction.strikePrice : price > auction.strikePrice,
+            auction.isCall ? price < auction.strikePrice : price > auction.strikePrice,
             "Strike price doesn't make sense with current prices"
         );
         uint256 optionId = optionContracts.length.add(1);
