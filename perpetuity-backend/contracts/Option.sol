@@ -9,6 +9,7 @@ import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
 
 contract Option is ERC721Burnable {
+
     using SafeMath for uint256;
 
     string public asset;
@@ -54,16 +55,11 @@ contract Option is ERC721Burnable {
     }
 
     modifier strikeSanityCheck(
-        string memory _asset,
         bool _isCall,
         uint256 _strikePrice
     ) {
-        require(
-            stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"),
-            "supported ERC-20 coins are only WETH and WBTC at the moment"
-        );
         int256 price;
-        if (stringsEqual(_asset, "WBTC")) {
+        if (stringsEqual(asset, "WBTC")) {
             btcOracle.requestPriceData();
             price = btcOracle.price();
         } else {
@@ -96,13 +92,13 @@ contract Option is ERC721Burnable {
      * */
     function executeCall()
         internal
-        strikeSanityCheck(asset, isCall, strikePrice)
+        strikeSanityCheck(isCall, strikePrice)
     {
         IERC20 erc;
         erc = IERC20(maticDAI);
         require(
             erc.balanceOf(msg.sender) >= paymentAmount,
-            "Not enough DAI to execute call option"
+            "INSUFFICIENT DAI TO EXECUTE CALL"
         );
         _transferOptionPaymentOrAsset(optionWriter, maticDAI, paymentAmount);
         _transferOptionAssetOrCollateral(msg.sender, assetAddress, assetAmount);
@@ -114,13 +110,13 @@ contract Option is ERC721Burnable {
      * */
     function executePut()
         internal
-        strikeSanityCheck(asset, isCall, strikePrice)
+        strikeSanityCheck(isCall, strikePrice)
     {
         IERC20 erc;
         erc = IERC20(assetAddress);
         require(
             erc.balanceOf(msg.sender) >= assetAmount,
-            "Not enough option asset to execute put option"
+            "INSUFFICIENT ASSETS TO EXECUTE PUT"
         );
         _transferOptionPaymentOrAsset(optionWriter, assetAddress, assetAmount);
         _transferOptionAssetOrCollateral(msg.sender, maticDAI, paymentAmount);
@@ -139,7 +135,7 @@ contract Option is ERC721Burnable {
         erc = IERC20(_tokenContract);
         require(
             erc.balanceOf(address(this)) >= _returnAmount,
-            "Not enough funds to transfer"
+            "INSUFFICIENT FUNDS"
         );
         erc.transfer(_recipient, _returnAmount);
     }
@@ -156,10 +152,10 @@ contract Option is ERC721Burnable {
         IERC20 erc;
         erc = IERC20(_tokenContract);
         uint256 allowance = erc.allowance(_msgSender(), address(this));
-        require(allowance >= _paymentAmount, "Token allowance not enough");
+        require(allowance >= _paymentAmount, "INSUFFICIENT ALLOWANCE");
         require(
             erc.transferFrom(_msgSender(), _recipient, _paymentAmount),
-            "Transfer failed"
+            "TRANSFER FAILED"
         );
     }
 

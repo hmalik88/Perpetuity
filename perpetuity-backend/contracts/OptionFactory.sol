@@ -3,17 +3,23 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./Option.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import {ISuperfluid, ISuperToken, ISuperAgreement, SuperAppDefinitions} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
-
-import {IConstantFlowAgreementV1} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IConstantFlowAgreementV1.sol";
-
-import {SuperAppBase} from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperAppBase.sol";
-
 import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
-import "./Auction.sol";
+import "./AuctionFactory.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import {
+    ISuperfluid, 
+    ISuperToken, 
+    ISuperAgreement, 
+    SuperAppDefinitions
+} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+
+import { IConstantFlowAgreementV1 } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IConstantFlowAgreementV1.sol";
+
+import { SuperAppBase } from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperAppBase.sol";
+
+
 
 contract OptionFactory is SuperAppBase {
 
@@ -43,7 +49,6 @@ contract OptionFactory is SuperAppBase {
         ETHoracle = _ETHoracle;
         btcOracle = BTCConsumer(BTCoracle);
         ethOracle = ETHConsumer(ETHoracle);
-
         auctionFactory = AuctionFactory(_auctionFactory);
         uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL |
             SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
@@ -63,10 +68,22 @@ contract OptionFactory is SuperAppBase {
         (, int96 flowRate, , ) = cfa.getFlowByID(superToken, _agreementId);
         AuctionFactory.Auction memory auction = auctionFactory.getAuctionInfo(_auctionId);
         int256 price;
-        require(!auction.optionCreated);
-        require(user == auction.currentBidder);
-        require(block.timestamp > auction.creationTime + auction.duration * 1 days);
-        require(auction.currentBidder != address(0) && auction.currentBid > 0);
+        require(
+            !auction.optionCreated, 
+            "OPTION ALREADY EXISTS"
+            );
+        require(
+            user == auction.currentBidder, 
+            "CALLER IS NOT THE AUCTION WINNER"
+            );
+        require(
+            block.timestamp > auction.creationTime + auction.duration * 1 days,
+            "AUCTION IS NOT OVER"
+            );
+        require(
+            auction.currentBidder != address(0) && auction.currentBid > 0,
+            "AUCTION HAS NO BIDDERS"
+            );
         address assetAddress = (stringsEqual(auction.asset, "WETH"))
             ? maticWETH
             : maticWBTC;
@@ -77,7 +94,12 @@ contract OptionFactory is SuperAppBase {
             btcOracle.requestPriceData();
             price = btcOracle.price();
         }
-        require(auction.isCall ? uint256(price) < auction.strikePrice : uint256(price) > auction.strikePrice);
+        require(
+            auction.isCall ? 
+            uint256(price) < auction.strikePrice : 
+            uint256(price) > auction.strikePrice,
+            "STRIKE PRICE DOESN'T MAKE SENSE W/ CURRENT PRICES"
+            );
         uint256 optionId = optionContracts.length.add(1);
         address option = address(
             new Option(
@@ -97,7 +119,10 @@ contract OptionFactory is SuperAppBase {
         if (auction.isCall) {
             IERC20 erc;
             erc = IERC20(assetAddress);
-            require(erc.balanceOf(msg.sender) >= auction.assetAmount);
+            require(
+                erc.balanceOf(msg.sender) >= auction.assetAmount,
+                "INSUFFICIENT ASSETS"
+                );
             depositErc20(assetAddress, option, auction.assetAmount);
         } else {
             depositErc20(
@@ -154,8 +179,11 @@ contract OptionFactory is SuperAppBase {
         IERC20 erc;
         erc = IERC20(_tokenContract);
         uint256 allowance = erc.allowance(msg.sender, address(this));
-        require(allowance >= _amount);
-        require(erc.transferFrom(msg.sender, _optionContract, _amount));
+        require(allowance >= _amount, "INSUFFICIENT ALLOWANCE");
+        require(
+            erc.transferFrom(msg.sender, _optionContract, _amount),
+            "TRANSFER FAILED"
+            );
     }
 
     /**

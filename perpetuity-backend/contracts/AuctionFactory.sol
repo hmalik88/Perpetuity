@@ -74,18 +74,20 @@ contract AuctionFactory {
         IERC20 erc;
         erc = IERC20(assetAddress);
         require(erc.balanceOf(msg.sender) >= _assetAmount);
-        auctions.push(Auction({
-            asset: _asset,
-            assetAmount: _assetAmount,
-            optionCreated: false,
-            isCall: _isCall,
-            creationTime: block.timestamp,
-            duration: _duration,
-            strikePrice: _strikePrice,
-            owner: msg.sender,
-            currentBid: _reservePrice,
-            currentBidder: address(0)
-        }));
+        auctions.push(
+            Auction({
+                asset: _asset,
+                assetAmount: _assetAmount,
+                optionCreated: false,
+                isCall: _isCall,
+                creationTime: block.timestamp,
+                duration: _duration,
+                strikePrice: _strikePrice,
+                owner: msg.sender,
+                currentBid: _reservePrice,
+                currentBidder: address(0)
+            })
+        );
     }
 
     function placeBid(uint256 _amount, uint256 _auctionId)
