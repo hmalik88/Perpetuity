@@ -29,7 +29,7 @@ contract BTCConsumer is ChainlinkClient {
          Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
          request.add("get", "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=USD");
          request.add("path", "bitcoin.usd");
-         request.add("times", "100");
+         request.addInt("times", 100);
          return sendChainlinkRequestTo(oracle, request, fee);
      }
 

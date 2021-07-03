@@ -30,7 +30,7 @@ contract ETHConsumer is ChainlinkClient {
          Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
          request.add("get", "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=USD");
          request.add("path", "ethereum.usd");
-         request.add("times", "100");
+         request.addInt("times", 100);
          return sendChainlinkRequestTo(oracle, request, fee);
      }
 
