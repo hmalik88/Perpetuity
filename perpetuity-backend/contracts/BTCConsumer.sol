@@ -1,9 +1,10 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.6.0;
+pragma solidity ^0.7.0;
 
 import "@chainlink/contracts/src/v0.6/ChainlinkClient.sol";
 
 contract BTCConsumer is ChainlinkClient {
+    using Chainlink for Chainlink.Request;
     int256 public price;
 
     address private oracle;
