@@ -1,7 +1,8 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.6.0;
+pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+
 import "./Option.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
@@ -22,7 +23,7 @@ import {
 import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
 
-contract OptionFactory is Ownable, SuperAppBase {
+contract OptionFactory is SuperAppBase {
 
 using SafeMath for uint;
 
@@ -55,7 +56,7 @@ using SafeMath for uint;
     Auction[] public auctions;
     address[] optionContracts;
 
-    constructor(address _BTCoracle, address _ETHoracle) public Ownable() {
+    constructor(address _BTCoracle, address _ETHoracle) {
         BTCoracle = _BTCoracle;
         ETHoracle = _ETHoracle;
         btcOracle = BTCConsumer(BTCoracle);
@@ -69,7 +70,7 @@ using SafeMath for uint;
         host.registerApp(configWord);
     }
 
-    modifier strikeSanityCheck(string _asset, bool _isCall, uint _strikePrice) {
+    modifier strikeSanityCheck(string memory _asset, bool _isCall, uint _strikePrice) {
         require(stringsEqual(_asset, "WETH") || stringsEqual(_asset, "WBTC"), "supported ERC-20 coins are only WETH and WBTC at the moment");
         int256 price;
         if (stringsEqual(_asset, "WBTC")) {
@@ -79,12 +80,13 @@ using SafeMath for uint;
             ethOracle.requestPriceData();
             price = ethOracle.price();
         }
-        if (_isCall && _strikePrice > price) _;
-        else if (!_isCall && _strikePrice < price) _;
+        if (_isCall && _strikePrice > uint256(price)) _;
+        else if (!_isCall && _strikePrice < uint256(price)) _;
     }
 
     modifier notOwner(uint _auctionID) {
-        require(msg.sender != auctions[auctionID].owner);
+        require(msg.sender != auctions[_auctionID].owner);
+        _;
     }
 
     function createAuction(string memory _asset,
@@ -99,7 +101,7 @@ using SafeMath for uint;
         IERC20 erc;
         erc = IERC20(assetAddress);
         require(erc.balanceOf(msg.sender) >= _assetAmount, "not enough assets in user address");
-        Auction memory newAuction = Auction({
+        auctions.push(Auction({
             asset: _asset,
             assetAmount: _assetAmount,
             optionCreated: false,
@@ -110,8 +112,7 @@ using SafeMath for uint;
             owner: msg.sender,
             currentBid: _reservePrice,
             currentBidder: address(0)
-        });
-        auctions.push(newAuction);
+        }));
     }
 
     function placeBid(uint _amount, uint _auctionID) public notOwner(_auctionID) {
@@ -125,12 +126,12 @@ using SafeMath for uint;
     function createOption(bytes calldata _ctx, bytes32 _agreementId) private returns (bytes memory newCtx) {
         newCtx = _ctx;
         address user = host.decodeCtx(_ctx).msgSender;
-        uint _auctionId = uint(host.decodeCtx(_ctx).userData.auctionId);
+        (uint256 _auctionId) = abi.decode(host.decodeCtx(_ctx).userData, (uint256));
         (,int96 flowRate,,) = cfa.getFlowByID(superToken, _agreementId);
         Auction storage auction = auctions[_auctionId];
         int256 price;
         require(!auction.optionCreated, "this option was already written!");
-        require(msg.sender == auction.currentBidder, "You are not the owner!");
+        require(msg.sender == auction.currentBidder, "You are not the winning bidder!");
         require(block.timestamp > auction.creationTime + auction.duration * 1 days, "Auction is not yet over, please wait until after to create option");
         require(auction.currentBidder != address(0) && auction.currentBid > 0, "There are no bidders for the option!");
         address assetAddress = (stringsEqual(auction.asset, "WETH")) ? maticWETH : maticWBTC;
@@ -142,7 +143,7 @@ using SafeMath for uint;
             price = btcOracle.price();
 
         }
-        require(isCall ? price < auction.strikePrice : price > auction.strikePrice, "Strike price doesn't make sense with current prices");
+        require(auction.isCall ? uint256(price) < auction.strikePrice : uint256(price) > auction.strikePrice, "Strike price doesn't make sense with current prices");
         uint optionId = optionContracts.length.add(1);
         address option = address(new Option(auction.asset,
                                     assetAddress,
@@ -161,8 +162,11 @@ using SafeMath for uint;
             require(erc.balanceOf(msg.sender) >= auction.assetAmount, "not enough assets in user address");
             depositErc20(assetAddress, option, auction.assetAmount);
         } else {
-            uint depositAmount = auction.assetAmount.mul(auction.strikePrice);
-            depositErc20(maticDAI, option, depositAmount);
+            depositErc20(
+                maticDAI, 
+                option, 
+                auction.assetAmount.mul(auction.strikePrice)
+                );
         }
         host.callAgreementWithContext(
             cfa,
@@ -174,14 +178,14 @@ using SafeMath for uint;
                 new bytes(0) // placeholder
             ),
             "0x",
-            ctx
+            _ctx
         );
         auction.optionCreated = true;
         optionContracts.push(option);
     }
 
     function stopFlowToOptionWriter(bytes calldata _ctx, bytes32 _agreementId) private returns (bytes memory newCtx) {
-        uint _auctionId = uint(host.decodeCtx(_ctx).userData.auctionId);
+        (uint256 _auctionId) = abi.decode(host.decodeCtx(_ctx).userData, (uint256));
         Auction memory auction = auctions[_auctionId];
         (newCtx, ) = host.callAgreementWithContext(
               cfa,
@@ -193,7 +197,7 @@ using SafeMath for uint;
                   new bytes(0) // placeholder
               ),
               "0x",
-              ctx
+              _ctx
           );
     }
 
