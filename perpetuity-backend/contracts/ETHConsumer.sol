@@ -4,6 +4,8 @@ pragma solidity ^0.7.0;
 import "@chainlink/contracts/src/v0.7/ChainlinkClient.sol";
 
 contract ETHConsumer is ChainlinkClient {
+    using Chainlink for Chainlink.Request;
+
     int256 public price;
 
     address private oracle;

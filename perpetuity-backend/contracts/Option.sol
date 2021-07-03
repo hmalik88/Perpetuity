@@ -169,6 +169,7 @@ contract Option is ERC721Burnable {
      * */
     function stringsEqual(string memory _a, string memory _b)
         internal
+        pure
         returns (bool)
     {
         return (keccak256(abi.encodePacked((_a))) ==
