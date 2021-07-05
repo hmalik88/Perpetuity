@@ -30,6 +30,7 @@ contract OptionFactory is SuperAppBase {
     address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
     address private BTCoracle;
     address private ETHoracle;
+    address private auctionFactoryAddress;
     BTCConsumer btcOracle;
     ETHConsumer ethOracle;
 
@@ -47,6 +48,7 @@ contract OptionFactory is SuperAppBase {
     constructor(address _BTCoracle, address _ETHoracle, address _auctionFactory) {
         BTCoracle = _BTCoracle;
         ETHoracle = _ETHoracle;
+        auctionFactoryAddress = _auctionFactory;
         btcOracle = BTCConsumer(BTCoracle);
         ethOracle = ETHConsumer(ETHoracle);
         auctionFactory = AuctionFactory(_auctionFactory);
@@ -56,6 +58,13 @@ contract OptionFactory is SuperAppBase {
             SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
 
         host.registerApp(configWord);
+    }
+
+    function assetLockup(uint256 _amount, address _asset, address _sender) external {
+        require(msg.sender == auctionFactoryAddress);
+        IERC20 erc = IERC20(_asset);
+        require(erc.allowance(_sender, address(this)) >= _amount);
+        erc.transferFrom(_sender, address(this), _amount);
     }
 
     function createOption(bytes calldata _ctx, bytes32 _agreementId)
@@ -84,6 +93,7 @@ contract OptionFactory is SuperAppBase {
             auction.currentBidder != address(0) && auction.currentBid > 0,
             "AUCTION HAS NO BIDDERS"
             );
+        require(uint256(flowRate) == auction.currentBid, "INCORRECT FLOW");
         address assetAddress = (stringsEqual(auction.asset, "WETH"))
             ? maticWETH
             : maticWBTC;
@@ -117,10 +127,9 @@ contract OptionFactory is SuperAppBase {
             )
         );
         if (auction.isCall) {
-            IERC20 erc;
-            erc = IERC20(assetAddress);
+            IERC20 erc = IERC20(assetAddress);
             require(
-                erc.balanceOf(msg.sender) >= auction.assetAmount,
+                erc.balanceOf(address(this)) >= auction.assetAmount,
                 "INSUFFICIENT ASSETS"
                 );
             depositErc20(assetAddress, option, auction.assetAmount);
@@ -129,7 +138,7 @@ contract OptionFactory is SuperAppBase {
                 maticDAI, 
                 option, 
                 auction.assetAmount.mul(auction.strikePrice)
-                );
+            );
         }
         host.callAgreementWithContext(
             cfa,
@@ -176,12 +185,9 @@ contract OptionFactory is SuperAppBase {
         address _optionContract,
         uint256 _amount
     ) internal {
-        IERC20 erc;
-        erc = IERC20(_tokenContract);
-        uint256 allowance = erc.allowance(msg.sender, address(this));
-        require(allowance >= _amount, "INSUFFICIENT ALLOWANCE");
+        IERC20 erc = IERC20(_tokenContract);
         require(
-            erc.transferFrom(msg.sender, _optionContract, _amount),
+            erc.transfer(_optionContract, _amount),
             "TRANSFER FAILED"
             );
     }

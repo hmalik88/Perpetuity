@@ -5,9 +5,14 @@ pragma experimental ABIEncoderV2;
 import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./OptionFactory.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 
-contract AuctionFactory {
+contract AuctionFactory is Ownable {
+
+    using SafeMath for uint256;
 
     struct Auction {
         string asset;
@@ -27,8 +32,11 @@ contract AuctionFactory {
     ETHConsumer ethOracle;
     address maticWETH = 0xE8F3118fDB41edcFEF7bF1DCa8009Fa8274aa070;
     address maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
+    address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
+    address private optionFactoryAddress;
 
-    constructor(address _BTCoracle, address _ETHoracle) {
+
+    constructor(address _BTCoracle, address _ETHoracle) Ownable() {
         btcOracle = BTCConsumer(_BTCoracle);
         ethOracle = ETHConsumer(_ETHoracle);
     }
@@ -58,6 +66,10 @@ contract AuctionFactory {
         _;
     }
 
+    function setFactory(address _factory) onlyOwner() external {
+        optionFactoryAddress = _factory;
+    }
+
     function createAuction(
         string memory _asset,
         uint256 _reservePrice,
@@ -71,9 +83,12 @@ contract AuctionFactory {
         address assetAddress = stringsEqual(_asset, "WETH")
             ? maticWETH
             : maticWBTC;
-        IERC20 erc;
-        erc = IERC20(assetAddress);
-        require(erc.balanceOf(msg.sender) >= _assetAmount);
+        uint256 amount = _isCall ? _assetAmount : _assetAmount.mul(_strikePrice);
+        IERC20 erc = _isCall ? IERC20(assetAddress) : IERC20(maticDAI);
+        require(erc.balanceOf(msg.sender) >= amount);
+        OptionFactory factory = OptionFactory(optionFactoryAddress);
+        if (_isCall) factory.assetLockup(amount, assetAddress, msg.sender);
+        else factory.assetLockup(amount, maticDAI, msg.sender);
         auctions.push(
             Auction({
                 asset: _asset,
