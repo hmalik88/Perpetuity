@@ -34,6 +34,8 @@ contract AuctionFactory is Ownable {
     address maticWBTC = 0x90ac599445B07c8aa0FC82248f51f6558136203D;
     address maticDAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
     address private optionFactoryAddress;
+    IERC20 erc;
+    OptionFactory factory;
 
 
     constructor(address _BTCoracle, address _ETHoracle) Ownable() {
@@ -84,9 +86,9 @@ contract AuctionFactory is Ownable {
             ? maticWETH
             : maticWBTC;
         uint256 amount = _isCall ? _assetAmount : _assetAmount.mul(_strikePrice);
-        IERC20 erc = _isCall ? IERC20(assetAddress) : IERC20(maticDAI);
+        erc = _isCall ? IERC20(assetAddress) : IERC20(maticDAI);
         require(erc.balanceOf(msg.sender) >= amount);
-        OptionFactory factory = OptionFactory(optionFactoryAddress);
+        factory = OptionFactory(optionFactoryAddress);
         if (_isCall) factory.assetLockup(amount, assetAddress, msg.sender);
         else factory.assetLockup(amount, maticDAI, msg.sender);
         auctions.push(
