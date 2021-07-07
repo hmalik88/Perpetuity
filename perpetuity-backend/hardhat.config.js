@@ -16,13 +16,12 @@ task("accounts", "Prints the list of accounts", async () => {
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
- module.exports = {
+module.exports = {
   networks: {
-    hardhat: {
-    },
+    hardhat: {},
     localhost: {
-      url: "http://127.0.0.1:8545"
-    }
+      url: "http://127.0.0.1:8545",
+    },
   },
   solidity: {
     compilers: [
@@ -31,27 +30,19 @@ task("accounts", "Prints the list of accounts", async () => {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 200
-          }
-        }
-      }, {
-        version: "0.6.0",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200
-          }
-        }
-      }
-    ]
+            runs: 200,
+          },
+        },
+      },
+    ],
   },
   paths: {
     sources: "./contracts",
     tests: "./test",
     cache: "./cache",
-    artifacts: "./artifacts"
+    artifacts: "./artifacts",
   },
   mocha: {
-    timeout: 20000
-  }
-}
+    timeout: 20000,
+  },
+};
