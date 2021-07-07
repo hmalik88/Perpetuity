@@ -2,13 +2,14 @@
 pragma solidity ^0.7.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721Burnable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
 
-contract Option is ERC721Burnable {
+contract Option is ERC721Burnable, ERC721 {
 
     using SafeMath for uint256;
 
@@ -25,6 +26,7 @@ contract Option is ERC721Burnable {
     uint256 paymentAmount;
     BTCConsumer btcOracle;
     ETHConsumer ethOracle;
+    address factoryAddress;
 
     constructor(
         string memory _asset,
@@ -51,7 +53,9 @@ contract Option is ERC721Burnable {
         paymentAmount = strikePrice.mul(assetAmount);
         btcOracle = BTCConsumer(_btcOracle);
         ethOracle = ETHConsumer(_ethOracle);
+        factoryAddress = msg.sender;
         _safeMint(_initialOptionHolder, _optionId);
+        _approve(msg.sender, _optionId);
     }
 
     modifier strikeSanityCheck(
@@ -94,8 +98,7 @@ contract Option is ERC721Burnable {
         internal
         strikeSanityCheck(isCall, strikePrice)
     {
-        IERC20 erc;
-        erc = IERC20(maticDAI);
+        IERC20 erc = IERC20(maticDAI);
         require(
             erc.balanceOf(msg.sender) >= paymentAmount,
             "INSUFFICIENT DAI TO EXECUTE CALL"
@@ -112,14 +115,21 @@ contract Option is ERC721Burnable {
         internal
         strikeSanityCheck(isCall, strikePrice)
     {
-        IERC20 erc;
-        erc = IERC20(assetAddress);
+        IERC20 erc = IERC20(assetAddress);
         require(
             erc.balanceOf(msg.sender) >= assetAmount,
             "INSUFFICIENT ASSETS TO EXECUTE PUT"
         );
         _transferOptionPaymentOrAsset(optionWriter, assetAddress, assetAmount);
         _transferOptionAssetOrCollateral(msg.sender, maticDAI, paymentAmount);
+    }
+
+
+    function recoverAssets() external {
+        require(msg.sender == factoryAddress, "CAN ONLY BE CALLED BY FACTORY");
+        if (isCall) erc = IERC2O(assetAddress);
+        else erc = IERC20(maticDAI);
+        erc.transfer(optionWriter, assetAmount);
     }
 
     /**
@@ -131,8 +141,7 @@ contract Option is ERC721Burnable {
         address _tokenContract,
         uint256 _returnAmount
     ) internal {
-        IERC20 erc;
-        erc = IERC20(_tokenContract);
+        IERC20 erc = IERC20(_tokenContract);
         require(
             erc.balanceOf(address(this)) >= _returnAmount,
             "INSUFFICIENT FUNDS"
@@ -149,8 +158,7 @@ contract Option is ERC721Burnable {
         address _tokenContract,
         uint256 _paymentAmount
     ) internal {
-        IERC20 erc;
-        erc = IERC20(_tokenContract);
+        IERC20 erc = IERC20(_tokenContract);
         uint256 allowance = erc.allowance(_msgSender(), address(this));
         require(allowance >= _paymentAmount, "INSUFFICIENT ALLOWANCE");
         require(
