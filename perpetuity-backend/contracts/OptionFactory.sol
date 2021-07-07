@@ -174,7 +174,7 @@ contract OptionFactory is SuperAppBase {
             "0x",
             _ctx
         );
-        if (isExecution) Option(optionAddress).recoverAssets();
+        if (!isExecution) Option(optionAddress).recoverAssets();
     }
 
     /**
