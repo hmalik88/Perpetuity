@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./BTCConsumer.sol";
 import "./ETHConsumer.sol";
 
-contract Option is ERC721Burnable, ERC721 {
+contract Option is ERC721Burnable {
 
     using SafeMath for uint256;
 
@@ -27,6 +27,9 @@ contract Option is ERC721Burnable, ERC721 {
     BTCConsumer btcOracle;
     ETHConsumer ethOracle;
     address factoryAddress;
+
+    mapping (uint256 => address) private _tokenApprovals;
+    
 
     constructor(
         string memory _asset,
@@ -55,7 +58,6 @@ contract Option is ERC721Burnable, ERC721 {
         ethOracle = ETHConsumer(_ethOracle);
         factoryAddress = msg.sender;
         _safeMint(_initialOptionHolder, _optionId);
-        _approve(msg.sender, _optionId);
     }
 
     modifier strikeSanityCheck(
@@ -76,6 +78,15 @@ contract Option is ERC721Burnable, ERC721 {
 
     function optionType() public view returns (string memory) {
         return isCall ? "Call" : "Put";
+    }
+
+    function burn(uint256 tokenId) public override virtual {
+        require(
+            _isApprovedOrOwner(_msgSender(), tokenId) || 
+            msg.sender == factoryAddress, 
+            "ERC721Burnable: caller is not owner nor approved"
+        );
+        _burn(tokenId);
     }
 
     //functions to execute the option
@@ -125,12 +136,13 @@ contract Option is ERC721Burnable, ERC721 {
     }
 
 
-    function recoverAssets() external {
+    function recoverAssets(address _asset, uint256 _amount) external {
         require(msg.sender == factoryAddress, "CAN ONLY BE CALLED BY FACTORY");
-        if (isCall) erc = IERC2O(assetAddress);
-        else erc = IERC20(maticDAI);
-        erc.transfer(optionWriter, assetAmount);
+        IERC20 returnToken = IERC20(_asset);
+        returnToken.transfer(optionWriter, _amount);
+        burn(optionId);
     }
+
 
     /**
      * @dev Internal function to transfer ERC20 held in the contract

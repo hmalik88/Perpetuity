@@ -174,7 +174,17 @@ contract OptionFactory is SuperAppBase {
             "0x",
             _ctx
         );
-        if (!isExecution) Option(optionAddress).recoverAssets();
+        Option option = Option(optionAddress);
+        if (!isExecution) {
+            if (auction.isCall && stringsEqual('WETH', auction.asset)) {
+                option.recoverAssets(maticWETH, auction.assetAmount);
+            } else if (auction.isCall) {
+                option.recoverAssets(maticWBTC, auction.assetAmount);
+            } else {
+                option.recoverAssets(maticDAI, auction.strikePrice.mul(auction.assetAmount));
+            }
+            
+        }
     }
 
     /**
