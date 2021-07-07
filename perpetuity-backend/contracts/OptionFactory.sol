@@ -160,7 +160,7 @@ contract OptionFactory is SuperAppBase {
         private
         returns (bytes memory newCtx)
     {
-        (uint256 _auctionId) = abi.decode(host.decodeCtx(_ctx).userData, (uint256));
+        (uint256 _auctionId, address optionAddress, bool isExecution) = abi.decode(host.decodeCtx(_ctx).userData, (uint256, address, bool));
         AuctionFactory.Auction memory auction = auctionFactory.getAuctionInfo(_auctionId);
         (newCtx, ) = host.callAgreementWithContext(
             cfa,
@@ -174,6 +174,7 @@ contract OptionFactory is SuperAppBase {
             "0x",
             _ctx
         );
+        if (isExecution) Option(optionAddress).recoverAssets();
     }
 
     /**
